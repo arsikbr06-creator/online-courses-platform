@@ -63,29 +63,49 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     
-    // Проверка кэша
-    const cachedCourse = await cache.get(`course:${id}`);
-    if (cachedCourse) {
-      return res.json(cachedCourse);
-    }
-
-    const result = await db.query(`
-      SELECT c.*, 
-             array_agg(json_build_object('id', m.id, 'title', m.title, 'order', m.order_num)) as modules
-      FROM courses c
-      LEFT JOIN modules m ON c.id = m.course_id
-      WHERE c.id = $1 AND c.is_active = true
-      GROUP BY c.id
+    // Получаем курс
+    const courseResult = await db.query(`
+      SELECT * FROM courses WHERE id = $1 AND is_active = true
     `, [id]);
 
-    if (result.rows.length === 0) {
+    if (courseResult.rows.length === 0) {
       return res.status(404).json({ error: 'Курс не найден' });
     }
 
-    // Сохранение в кэш
-    await cache.set(`course:${id}`, result.rows[0], 300);
+    const course = courseResult.rows[0];
 
-    res.json(result.rows[0]);
+    // Получаем модули курса
+    const modulesResult = await db.query(`
+      SELECT id, title, description, order_num
+      FROM modules
+      WHERE course_id = $1
+      ORDER BY order_num
+    `, [id]);
+
+    course.modules = modulesResult.rows;
+
+    // Проверяем, записан ли пользователь (если авторизован)
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.substring(7);
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+        
+        const enrolledResult = await db.query(`
+          SELECT id FROM user_courses 
+          WHERE user_id = $1 AND course_id = $2
+        `, [decoded.userId, id]);
+        
+        course.enrolled = enrolledResult.rows.length > 0;
+      } catch (err) {
+        // Токен невалидный - игнорируем
+        course.enrolled = false;
+      }
+    } else {
+      course.enrolled = false;
+    }
+
+    res.json(course);
   } catch (error) {
     console.error('Ошибка получения курса:', error);
     res.status(500).json({ error: 'Ошибка сервера' });

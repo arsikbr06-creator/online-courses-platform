@@ -104,4 +104,65 @@ INSERT INTO courses (title, description, image_url, duration, level) VALUES
 ('DevOps практики', 'Комплексный курс по современным DevOps практикам. Освойте CI/CD с GitHub Actions и Jenkins, Infrastructure as Code с Terraform, мониторинг с Grafana и Prometheus. Автоматизация тестирования, деплоя и отката изменений. Реальные проекты из индустрии.', 'https://images.unsplash.com/photo-1618401471353-b98afee0b2eb?w=400', '12 недель', 'Продвинутый'),
 ('Базы данных PostgreSQL', 'Углубленное изучение PostgreSQL от основ до продвинутых техник. Проектирование схем, индексы, транзакции и ACID. Оптимизация запросов, репликация и шардирование. Работа с JSON, полнотекстовый поиск. Практика: проектирование highload системы.', 'https://images.unsplash.com/photo-1544383835-bda2bc66a55d?w=400', '6 недель', 'Средний');
 
+-- Добавим модули для курсов (используем фиксированные UUID для связи)
+-- Python курс
+INSERT INTO modules (course_id, title, description, order_num) 
+SELECT id, 'Введение в Python', 'Установка, первая программа, переменные и типы данных', 1 FROM courses WHERE title = 'Основы программирования на Python';
+INSERT INTO modules (course_id, title, description, order_num) 
+SELECT id, 'Условия и циклы', 'If-else, for, while, вложенные циклы', 2 FROM courses WHERE title = 'Основы программирования на Python';
+INSERT INTO modules (course_id, title, description, order_num) 
+SELECT id, 'Функции и модули', 'Определение функций, аргументы, импорт модулей', 3 FROM courses WHERE title = 'Основы программирования на Python';
+INSERT INTO modules (course_id, title, description, order_num) 
+SELECT id, 'ООП в Python', 'Классы, объекты, наследование, инкапсуляция', 4 FROM courses WHERE title = 'Основы программирования на Python';
+
+-- React курс
+INSERT INTO modules (course_id, title, description, order_num) 
+SELECT id, 'Основы React', 'Компоненты, JSX, props и state', 1 FROM courses WHERE title = 'Web-разработка с React';
+INSERT INTO modules (course_id, title, description, order_num) 
+SELECT id, 'Хуки React', 'useState, useEffect, useContext, custom hooks', 2 FROM courses WHERE title = 'Web-разработка с React';
+INSERT INTO modules (course_id, title, description, order_num) 
+SELECT id, 'React Router', 'Навигация, роутинг, защищенные маршруты', 3 FROM courses WHERE title = 'Web-разработка с React';
+INSERT INTO modules (course_id, title, description, order_num) 
+SELECT id, 'Redux и управление состоянием', 'Store, actions, reducers, middleware', 4 FROM courses WHERE title = 'Web-разработка с React';
+
+-- Docker курс
+INSERT INTO modules (course_id, title, description, order_num) 
+SELECT id, 'Введение в контейнеризацию', 'Что такое Docker, установка, первый контейнер', 1 FROM courses WHERE title = 'Docker и контейнеризация';
+INSERT INTO modules (course_id, title, description, order_num) 
+SELECT id, 'Работа с Dockerfile', 'Создание образов, слои, оптимизация', 2 FROM courses WHERE title = 'Docker и контейнеризация';
+INSERT INTO modules (course_id, title, description, order_num) 
+SELECT id, 'Docker Compose', 'Multi-container приложения, networks, volumes', 3 FROM courses WHERE title = 'Docker и контейнеризация';
+INSERT INTO modules (course_id, title, description, order_num) 
+SELECT id, 'Production deployment', 'Best practices, безопасность, мониторинг', 4 FROM courses WHERE title = 'Docker и контейнеризация';
+
+-- Kubernetes курс
+INSERT INTO modules (course_id, title, description, order_num) 
+SELECT id, 'Архитектура Kubernetes', 'Pods, nodes, control plane', 1 FROM courses WHERE title = 'Kubernetes для начинающих';
+INSERT INTO modules (course_id, title, description, order_num) 
+SELECT id, 'Deployments и Services', 'Управление приложениями, балансировка нагрузки', 2 FROM courses WHERE title = 'Kubernetes для начинающих';
+INSERT INTO modules (course_id, title, description, order_num) 
+SELECT id, 'ConfigMaps и Secrets', 'Конфигурация и управление секретами', 3 FROM courses WHERE title = 'Kubernetes для начинающих';
+INSERT INTO modules (course_id, title, description, order_num) 
+SELECT id, 'Мониторинг и логирование', 'Prometheus, Grafana, ELK stack', 4 FROM courses WHERE title = 'Kubernetes для начинающих';
+
+-- DevOps курс
+INSERT INTO modules (course_id, title, description, order_num) 
+SELECT id, 'Введение в DevOps', 'Культура, практики, инструменты', 1 FROM courses WHERE title = 'DevOps практики';
+INSERT INTO modules (course_id, title, description, order_num) 
+SELECT id, 'CI/CD pipelines', 'GitHub Actions, Jenkins, автоматизация', 2 FROM courses WHERE title = 'DevOps практики';
+INSERT INTO modules (course_id, title, description, order_num) 
+SELECT id, 'Infrastructure as Code', 'Terraform, Ansible, конфигурация инфраструктуры', 3 FROM courses WHERE title = 'DevOps практики';
+INSERT INTO modules (course_id, title, description, order_num) 
+SELECT id, 'Мониторинг и observability', 'Метрики, логи, трассировка', 4 FROM courses WHERE title = 'DevOps практики';
+
+-- PostgreSQL курс
+INSERT INTO modules (course_id, title, description, order_num) 
+SELECT id, 'Основы SQL', 'SELECT, JOIN, подзапросы, агрегация', 1 FROM courses WHERE title = 'Базы данных PostgreSQL';
+INSERT INTO modules (course_id, title, description, order_num) 
+SELECT id, 'Проектирование БД', 'Нормализация, индексы, ограничения', 2 FROM courses WHERE title = 'Базы данных PostgreSQL';
+INSERT INTO modules (course_id, title, description, order_num) 
+SELECT id, 'Оптимизация запросов', 'EXPLAIN, индексы, партиционирование', 3 FROM courses WHERE title = 'Базы данных PostgreSQL';
+INSERT INTO modules (course_id, title, description, order_num) 
+SELECT id, 'Advanced PostgreSQL', 'Репликация, JSON, полнотекстовый поиск', 4 FROM courses WHERE title = 'Базы данных PostgreSQL';
+
 COMMIT;

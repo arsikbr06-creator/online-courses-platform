@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
@@ -8,9 +8,13 @@ import Paper from '@mui/material/Paper';
 import Divider from '@mui/material/Divider';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemText from '@mui/material/ListItemText';
 
 function CourseDetailPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [course, setCourse] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -39,7 +43,8 @@ function CourseDetailPage() {
   const handleEnroll = async () => {
     const token = localStorage.getItem('token');
     if (!token) {
-      alert('Войдите в систему, чтобы записаться на курс');
+      // Перенаправляем на страницу логина
+      navigate('/login');
       return;
     }
 
@@ -119,11 +124,34 @@ function CourseDetailPage() {
         Программа курса
       </Typography>
       
-      <Paper sx={{ p: 3 }}>
-        <Typography variant="body2" color="text.secondary">
-          Подробная программа курса будет доступна после записи
-        </Typography>
-      </Paper>
+      {course.modules && course.modules.length > 0 ? (
+        <List>
+          {course.modules.map((module, index) => (
+            <Paper key={module.id} sx={{ mb: 2 }}>
+              <ListItem>
+                <ListItemText
+                  primary={
+                    <Typography variant="h6">
+                      Модуль {index + 1}: {module.title}
+                    </Typography>
+                  }
+                  secondary={
+                    <Typography variant="body2" color="text.secondary">
+                      {module.description}
+                    </Typography>
+                  }
+                />
+              </ListItem>
+            </Paper>
+          ))}
+        </List>
+      ) : (
+        <Paper sx={{ p: 3 }}>
+          <Typography variant="body2" color="text.secondary">
+            Программа курса скоро будет добавлена
+          </Typography>
+        </Paper>
+      )}
     </div>
   );
 }
