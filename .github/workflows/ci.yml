@@ -133,7 +133,7 @@ jobs:
       run: |
         echo "🧭 Checking navigation..."
         grep -q "navigate" src/components/Header.js && echo "✅ Navigation found"
-        grep -q "logout" src/components/Header.js && echo "✅ Logout functionality found"
+        grep -q "handleLogout" src/components/Header.js && echo "✅ Logout functionality found"
 
   summary:
     name: 📊 CI Summary
