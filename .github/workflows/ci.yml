@@ -88,15 +88,15 @@ jobs:
         echo "🔐 Checking authentication implementation..."
         grep -q "jwt.sign" routes/auth.js && echo "✅ JWT token generation found"
         grep -q "bcrypt" routes/auth.js && echo "✅ Password hashing found"
-        grep -q "POST.*register" routes/auth.js && echo "✅ Registration endpoint found"
-        grep -q "POST.*login" routes/auth.js && echo "✅ Login endpoint found"
+        grep -q "post.*register" routes/auth.js && echo "✅ Registration endpoint found"
+        grep -q "post.*login" routes/auth.js && echo "✅ Login endpoint found"
     
     - name: Check course enrollment
       working-directory: src/backend
       run: |
         echo "📚 Checking course enrollment features..."
-        grep -q "POST.*enroll" routes/courses.js && echo "✅ Course enrollment endpoint found"
-        grep -q "my/enrolled" routes/courses.js && echo "✅ Enrolled courses endpoint found"
+        grep -q "post.*enroll" routes/courses.js && echo "✅ Course enrollment endpoint found"
+        grep -q "get.*my/enrolled" routes/courses.js && echo "✅ Enrolled courses endpoint found"
 
   test-frontend:
     name: 🎨 Test Frontend
