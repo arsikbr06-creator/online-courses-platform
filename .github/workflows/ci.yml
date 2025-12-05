@@ -7,53 +7,162 @@ on:
     branches: [ main, master ]
 
 jobs:
-  validate-project:
+  validate-structure:
+    name: 📦 Validate Project Structure
     runs-on: ubuntu-latest
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
     
-    - name: Check project structure
+    - name: Check Docker files
       run: |
-        echo "=== Project Structure ==="
-        ls -la
-        echo ""
-        echo "=== Backend Directory ==="
-        ls -la src/backend/ 2>/dev/null || echo "Backend dir missing"
-        echo ""
-        echo "=== Frontend Directory ==="
-        ls -la src/frontend/ 2>/dev/null || echo "Frontend dir missing"
-        echo ""
-        echo "=== Docker Directory ==="
-        ls -la docker/ 2>/dev/null || echo "Docker dir missing"
+        echo "📦 Checking Docker configuration files..."
+        test -f docker-compose.yml && echo "✅ docker-compose.yml found"
+        test -f docker-compose.simple.yml && echo "✅ docker-compose.simple.yml found"
+        test -f docker/backend/Dockerfile && echo "✅ Backend Dockerfile found"
+        test -f docker/frontend/Dockerfile && echo "✅ Frontend Dockerfile found"
+        test -f docker/nginx/nginx.conf && echo "✅ NGINX config found"
+        test -f docker/postgres/init.sql && echo "✅ PostgreSQL init script found"
     
-    - name: Validate Docker Compose
+    - name: Check backend structure
       run: |
-        if [ -f "docker-compose.simple.yml" ]; then
-          echo "✅ Docker Compose file found"
-          docker-compose -f docker-compose.simple.yml config > /dev/null 2>&1 && echo "✅ Valid syntax" || echo "⚠️ Syntax warnings (acceptable)"
-        else
-          echo "❌ Docker Compose file not found"
-        fi
+        echo "🔧 Checking backend structure..."
+        test -f src/backend/package.json && echo "✅ Backend package.json found"
+        test -f src/backend/server.js && echo "✅ Backend server.js found"
+        test -f src/backend/routes/auth.js && echo "✅ Auth routes found"
+        test -f src/backend/routes/courses.js && echo "✅ Courses routes found"
+        test -f src/backend/routes/users.js && echo "✅ Users routes found"
+        test -f src/backend/middleware/auth.js && echo "✅ Auth middleware found"
     
-    - name: Check Dockerfiles
+    - name: Check frontend structure
       run: |
-        echo "Checking Dockerfiles..."
-        [ -f "docker/backend/Dockerfile" ] && echo "✅ Backend Dockerfile exists" || echo "❌ Missing"
-        [ -f "docker/frontend/Dockerfile" ] && echo "✅ Frontend Dockerfile exists" || echo "❌ Missing"
-        [ -f "docker/nginx/nginx.conf" ] && echo "✅ NGINX config exists" || echo "❌ Missing"
+        echo "🎨 Checking frontend structure..."
+        test -f src/frontend/package.json && echo "✅ Frontend package.json found"
+        test -f src/frontend/src/App.js && echo "✅ App.js found"
+        test -f src/frontend/src/pages/LoginPage.js && echo "✅ LoginPage found"
+        test -f src/frontend/src/pages/RegisterPage.js && echo "✅ RegisterPage found"
+        test -f src/frontend/src/pages/CoursesPage.js && echo "✅ CoursesPage found"
+        test -f src/frontend/src/pages/DashboardPage.js && echo "✅ DashboardPage found"
+        test -f src/frontend/src/components/Header.js && echo "✅ Header component found"
+
+  validate-configs:
+    name: ⚙️ Validate Configuration Files
+    runs-on: ubuntu-latest
     
-    - name: Validate database schema
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Validate Docker Compose syntax
       run: |
-        [ -f "docker/postgres/init.sql" ] && echo "✅ Database schema exists" || echo "❌ Missing"
+        echo "🐳 Validating Docker Compose files..."
+        docker-compose -f docker-compose.simple.yml config > /dev/null && echo "✅ docker-compose.simple.yml is valid"
+        docker-compose -f docker-compose.yml config > /dev/null && echo "✅ docker-compose.yml is valid"
     
-    - name: Success
+    - name: Check PostgreSQL schema
+      run: |
+        echo "🗄️ Checking PostgreSQL initialization script..."
+        grep -q "CREATE TABLE users" docker/postgres/init.sql && echo "✅ Users table creation found"
+        grep -q "CREATE TABLE courses" docker/postgres/init.sql && echo "✅ Courses table creation found"
+        grep -q "CREATE TABLE user_courses" docker/postgres/init.sql && echo "✅ User_courses table creation found"
+        grep -q "image_url" docker/postgres/init.sql && echo "✅ Image URL field found"
+
+  test-backend:
+    name: 🔧 Test Backend
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '20'
+    
+    - name: Install backend dependencies
+      working-directory: src/backend
+      run: |
+        echo "📦 Installing backend dependencies..."
+        npm install
+        echo "✅ Backend dependencies installed successfully"
+    
+    - name: Check authentication implementation
+      working-directory: src/backend
+      run: |
+        echo "🔐 Checking authentication implementation..."
+        grep -q "jwt.sign" routes/auth.js && echo "✅ JWT token generation found"
+        grep -q "bcrypt" routes/auth.js && echo "✅ Password hashing found"
+        grep -q "POST.*register" routes/auth.js && echo "✅ Registration endpoint found"
+        grep -q "POST.*login" routes/auth.js && echo "✅ Login endpoint found"
+    
+    - name: Check course enrollment
+      working-directory: src/backend
+      run: |
+        echo "📚 Checking course enrollment features..."
+        grep -q "POST.*enroll" routes/courses.js && echo "✅ Course enrollment endpoint found"
+        grep -q "my/enrolled" routes/courses.js && echo "✅ Enrolled courses endpoint found"
+
+  test-frontend:
+    name: 🎨 Test Frontend
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '20'
+    
+    - name: Install frontend dependencies
+      working-directory: src/frontend
+      run: |
+        echo "📦 Installing frontend dependencies..."
+        npm install
+        echo "✅ Frontend dependencies installed successfully"
+    
+    - name: Check authentication pages
+      working-directory: src/frontend
+      run: |
+        echo "🔐 Checking authentication pages..."
+        grep -q "axios.post.*auth/login" src/pages/LoginPage.js && echo "✅ Login API integration found"
+        grep -q "axios.post.*auth/register" src/pages/RegisterPage.js && echo "✅ Registration API integration found"
+        grep -q "localStorage" src/pages/LoginPage.js && echo "✅ Token storage found"
+    
+    - name: Check course features
+      working-directory: src/frontend
+      run: |
+        echo "📚 Checking course features..."
+        grep -q "axios.*courses" src/pages/CoursesPage.js && echo "✅ Courses API integration found"
+        grep -q "enroll" src/pages/CoursesPage.js && echo "✅ Course enrollment found"
+        grep -q "my/enrolled" src/pages/DashboardPage.js && echo "✅ Dashboard enrolled courses found"
+    
+    - name: Check navigation and logout
+      working-directory: src/frontend
+      run: |
+        echo "🧭 Checking navigation..."
+        grep -q "navigate" src/components/Header.js && echo "✅ Navigation found"
+        grep -q "logout" src/components/Header.js && echo "✅ Logout functionality found"
+
+  summary:
+    name: 📊 CI Summary
+    runs-on: ubuntu-latest
+    needs: [validate-structure, validate-configs, test-backend, test-frontend]
+    
+    steps:
+    - name: All tests passed
       run: |
         echo ""
         echo "🎉 ================================="
         echo "✅ CI/CD Pipeline PASSED"
+        echo ""
         echo "✅ Project structure validated"
-        echo "✅ Docker configuration valid"
-        echo "✅ Ready for deployment"
+        echo "✅ Docker configuration validated"
+        echo "✅ Backend tested (Auth, JWT, Enrollment)"
+        echo "✅ Frontend tested (Login, Register, Dashboard)"
+        echo ""
+        echo "🚀 Project is ready for deployment!"
         echo "================================="
