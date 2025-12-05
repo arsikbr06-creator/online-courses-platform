@@ -1,31 +1,82 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import axios from 'axios';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import Divider from '@mui/material/Divider';
+import CircularProgress from '@mui/material/CircularProgress';
+import Alert from '@mui/material/Alert';
 
 function CourseDetailPage() {
   const { id } = useParams();
+  const [course, setCourse] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [enrolling, setEnrolling] = useState(false);
 
-  // Демо данные для примера
-  const course = {
-    id,
-    title: 'Docker и контейнеризация',
-    description: 'Подробное изучение технологий контейнеризации с использованием Docker',
-    fullDescription: 'В этом курсе вы изучите основы контейнеризации, научитесь работать с Docker, создавать Dockerfile, использовать Docker Compose, настраивать сети и volumes. Также рассмотрим вопросы оркестрации с помощью Docker Swarm и Kubernetes.',
-    duration: '6 недель',
-    level: 'Средний',
-    modules: [
-      { id: 1, title: 'Введение в контейнеризацию', lessons: 4 },
-      { id: 2, title: 'Основы Docker', lessons: 6 },
-      { id: 3, title: 'Dockerfile и сборка образов', lessons: 5 },
-      { id: 4, title: 'Docker Compose', lessons: 4 },
-      { id: 5, title: 'Сети и хранилища', lessons: 5 },
-      { id: 6, title: 'Оркестрация контейнеров', lessons: 6 },
-    ],
+  useEffect(() => {
+    loadCourse();
+  }, [id]);
+
+  const loadCourse = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      
+      const response = await axios.get(`/api/courses/${id}`, config);
+      setCourse(response.data);
+    } catch (err) {
+      setError('Не удалось загрузить информацию о курсе');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleEnroll = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      alert('Войдите в систему, чтобы записаться на курс');
+      return;
+    }
+
+    try {
+      setEnrolling(true);
+      await axios.post(`/api/courses/${id}/enroll`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      alert('Вы успешно записаны на курс!');
+      loadCourse(); // Перезагрузить данные курса
+    } catch (err) {
+      if (err.response?.status === 400) {
+        alert('Вы уже записаны на этот курс');
+      } else {
+        alert('Ошибка при записи на курс');
+      }
+      console.error(err);
+    } finally {
+      setEnrolling(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error || !course) {
+    return (
+      <Alert severity="error" sx={{ mt: 2 }}>
+        {error || 'Курс не найден'}
+      </Alert>
+    );
+  }
 
   return (
     <div>
@@ -35,7 +86,7 @@ function CourseDetailPage() {
       
       <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="body1" paragraph>
-          {course.fullDescription}
+          {course.description}
         </Typography>
         
         <Box sx={{ display: 'flex', gap: 3, my: 2 }}>
@@ -47,25 +98,32 @@ function CourseDetailPage() {
           </Typography>
         </Box>
         
-        <Button variant="contained" size="large" sx={{ mt: 2 }}>
-          Записаться на курс
-        </Button>
+        {course.enrolled ? (
+          <Button variant="outlined" size="large" sx={{ mt: 2 }} disabled>
+            Вы уже записаны на курс
+          </Button>
+        ) : (
+          <Button 
+            variant="contained" 
+            size="large" 
+            sx={{ mt: 2 }}
+            onClick={handleEnroll}
+            disabled={enrolling}
+          >
+            {enrolling ? 'Записываем...' : 'Записаться на курс'}
+          </Button>
+        )}
       </Paper>
 
       <Typography variant="h5" gutterBottom sx={{ mt: 4 }}>
         Программа курса
       </Typography>
       
-      {course.modules.map((module, index) => (
-        <Paper key={module.id} sx={{ p: 2, mb: 2 }}>
-          <Typography variant="h6">
-            Модуль {index + 1}: {module.title}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {module.lessons} уроков
-          </Typography>
-        </Paper>
-      ))}
+      <Paper sx={{ p: 3 }}>
+        <Typography variant="body2" color="text.secondary">
+          Подробная программа курса будет доступна после записи
+        </Typography>
+      </Paper>
     </div>
   );
 }
