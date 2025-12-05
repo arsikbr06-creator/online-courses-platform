@@ -1,0 +1,221 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [ created ]
+
+env:
+  REGISTRY: docker.io
+  IMAGE_PREFIX: online-courses
+
+jobs:
+  # Job 1: Lint и тесты
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: |
+          src/frontend/package-lock.json
+          src/backend/package-lock.json
+
+    - name: Install frontend dependencies
+      working-directory: ./src/frontend
+      run: npm ci
+
+    - name: Lint frontend
+      working-directory: ./src/frontend
+      run: npm run lint
+
+    - name: Test frontend
+      working-directory: ./src/frontend
+      run: npm test -- --coverage --watchAll=false
+
+    - name: Install backend dependencies
+      working-directory: ./src/backend
+      run: npm ci
+
+    - name: Lint backend
+      working-directory: ./src/backend
+      run: npm run lint
+
+    - name: Test backend
+      working-directory: ./src/backend
+      run: npm test
+
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      if: matrix.node-version == '20.x'
+      with:
+        files: ./src/frontend/coverage/lcov.info,./src/backend/coverage/lcov.info
+        flags: unittests
+        name: codecov-umbrella
+
+  # Job 2: Security scan
+  security:
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Snyk security scan
+      uses: snyk/actions/node@master
+      continue-on-error: true
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        args: --all-projects --severity-threshold=high
+
+  # Job 3: Build Docker images
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' || github.event_name == 'release'
+    
+    strategy:
+      matrix:
+        service: [frontend, backend]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=sha,prefix={{branch}}-
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./src/${{ matrix.service }}
+        file: ./docker/${{ matrix.service }}/Dockerfile
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:buildcache
+        cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:buildcache,mode=max
+
+    - name: Scan image for vulnerabilities
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:${{ github.sha }}
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy results
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  # Job 4: Deploy to Staging
+  deploy-staging:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/develop'
+    environment:
+      name: staging
+      url: https://staging.online-courses.example.com
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup SSH
+      uses: webfactory/ssh-agent@v0.8.0
+      with:
+        ssh-private-key: ${{ secrets.STAGING_SSH_KEY }}
+
+    - name: Deploy to staging
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }} << 'EOF'
+          cd /opt/online-courses
+          docker stack deploy -c docker-compose.yml online-courses
+          docker service update --image ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:develop online-courses_frontend
+          docker service update --image ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-backend:develop online-courses_backend
+        EOF
+
+    - name: Run smoke tests
+      run: |
+        sleep 30
+        curl -f https://staging.online-courses.example.com/health || exit 1
+        curl -f https://staging.online-courses.example.com/api/health || exit 1
+
+  # Job 5: Deploy to Production
+  deploy-production:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'release'
+    environment:
+      name: production
+      url: https://online-courses.example.com
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup SSH
+      uses: webfactory/ssh-agent@v0.8.0
+      with:
+        ssh-private-key: ${{ secrets.PRODUCTION_SSH_KEY }}
+
+    - name: Backup database
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+          docker exec postgres pg_dump -U postgres online_courses > /backups/pre-deploy-$(date +%Y%m%d-%H%M%S).sql
+        EOF
+
+    - name: Deploy to production
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+          cd /opt/online-courses
+          docker stack deploy -c docker-compose.yml online-courses
+          docker service update --image ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-frontend:${{ github.event.release.tag_name }} online-courses_frontend
+          docker service update --image ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-backend:${{ github.event.release.tag_name }} online-courses_backend
+        EOF
+
+    - name: Run smoke tests
+      run: |
+        sleep 60
+        curl -f https://online-courses.example.com/health || exit 1
+        curl -f https://online-courses.example.com/api/health || exit 1
+
+    - name: Notify team
+      uses: 8398a7/action-slack@v3
+      if: always()
+      with:
+        status: ${{ job.status }}
+        text: 'Production deployment ${{ job.status }}'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
