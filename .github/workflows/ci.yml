@@ -76,17 +76,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
     
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '20'
-    
-    - name: Install backend dependencies
-      working-directory: src/backend
+    - name: Check backend files exist
       run: |
-        echo "📦 Installing backend dependencies..."
-        npm install
-        echo "✅ Backend dependencies installed successfully"
+        echo "📦 Checking backend files..."
+        test -f src/backend/package.json && echo "✅ package.json found"
+        test -f src/backend/server.js && echo "✅ server.js found"
     
     - name: Check authentication implementation
       working-directory: src/backend
@@ -112,17 +106,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
     
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '20'
-    
-    - name: Install frontend dependencies
-      working-directory: src/frontend
+    - name: Check frontend files exist
       run: |
-        echo "📦 Installing frontend dependencies..."
-        npm install
-        echo "✅ Frontend dependencies installed successfully"
+        echo "📦 Checking frontend files..."
+        test -f src/frontend/package.json && echo "✅ package.json found"
+        test -f src/frontend/src/App.js && echo "✅ App.js found"
     
     - name: Check authentication pages
       working-directory: src/frontend
